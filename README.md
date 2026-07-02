@@ -21,6 +21,12 @@ Each subscription contains:
 - subscription start date in `MM-YYYY`
 - optional subscription end date in `MM-YYYY`
 
+## API Documentation
+
+Interactive Swagger UI is available at `/swagger/index.html` when the service is running.
+
+![Swagger UI](docs/swagger.png)
+
 ## Features
 
 - Create, list, get, update, and delete subscriptions
@@ -162,7 +168,7 @@ go test -race -cover ./...
 Check formatting and vetting before review:
 
 ```bash
-test -z "$(gofmt -l .)"
+gofmt -l .
 go vet ./...
 ```
 
