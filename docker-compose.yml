@@ -1,6 +1,4 @@
-version: '3.8'
-
-services:
+﻿services:
   postgres:
     image: postgres:15
     environment:
@@ -12,19 +10,27 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./migrations/000001_init_schema.up.sql:/docker-entrypoint-initdb.d/000001_init_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U subscription_user -d subscription_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   app:
     build: .
     ports:
       - "8080:8080"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: subscription_user
       DB_PASSWORD: subscription_password
       DB_NAME: subscription_db
+      SERVER_PORT: 8080
+      LOG_LEVEL: info
     volumes:
       - ./migrations:/migrations
 

@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -143,11 +142,15 @@ func (r *SubscriptionRepository) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-func (r *SubscriptionRepository) GetSumByPeriod(ctx context.Context, filter *models.SubscriptionFilter) (int, error) {
+func (r *SubscriptionRepository) GetByPeriod(ctx context.Context, filter *models.SubscriptionFilter) ([]models.Subscription, error) {
 	periodStart, _ := time.Parse("01-2006", *filter.StartDate)
 	periodEnd, _ := time.Parse("01-2006", *filter.EndDate)
 
-	query := `SELECT price, start_date, end_date FROM subscriptions WHERE start_date <= $1 AND (end_date IS NULL OR end_date >= $2)`
+	query := `
+		SELECT id, service_name, price, user_id, start_date, end_date, created_at, updated_at
+		FROM subscriptions
+		WHERE start_date <= $1 AND (end_date IS NULL OR end_date >= $2)
+	`
 	args := []interface{}{periodEnd, periodStart}
 	argPos := 3
 
@@ -164,67 +167,22 @@ func (r *SubscriptionRepository) GetSumByPeriod(ctx context.Context, filter *mod
 
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
-		return 0, fmt.Errorf("failed to calculate sum: %w", err)
+		return nil, fmt.Errorf("failed to get subscriptions by period: %w", err)
 	}
 	defer rows.Close()
 
-	total := 0
+	subscriptions := []models.Subscription{}
 	for rows.Next() {
-		var price int
-		var startDate time.Time
-		var endDate sql.NullTime
-
-		if err := rows.Scan(&price, &startDate, &endDate); err != nil {
-			return 0, fmt.Errorf("failed to scan subscription sum row: %w", err)
+		sub := models.Subscription{}
+		if err := rows.Scan(&sub.ID, &sub.ServiceName, &sub.Price, &sub.UserID, &sub.StartDate, &sub.EndDate, &sub.CreatedAt, &sub.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan subscription period row: %w", err)
 		}
-
-		overlapStart := maxMonth(startDate, periodStart)
-		overlapEnd := periodEnd
-		if endDate.Valid {
-			overlapEnd = minMonth(endDate.Time, periodEnd)
-		}
-
-		months := monthsBetweenInclusive(overlapStart, overlapEnd)
-		if months > 0 {
-			total += price * months
-		}
+		subscriptions = append(subscriptions, sub)
 	}
 
 	if err := rows.Err(); err != nil {
-		return 0, fmt.Errorf("failed to iterate subscription sum rows: %w", err)
+		return nil, fmt.Errorf("failed to iterate subscription period rows: %w", err)
 	}
 
-	return total, nil
-}
-
-func maxMonth(a, b time.Time) time.Time {
-	a = monthStart(a)
-	b = monthStart(b)
-	if a.After(b) {
-		return a
-	}
-	return b
-}
-
-func minMonth(a, b time.Time) time.Time {
-	a = monthStart(a)
-	b = monthStart(b)
-	if a.Before(b) {
-		return a
-	}
-	return b
-}
-
-func monthStart(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
-}
-
-func monthsBetweenInclusive(start, end time.Time) int {
-	start = monthStart(start)
-	end = monthStart(end)
-	if end.Before(start) {
-		return 0
-	}
-
-	return (end.Year()-start.Year())*12 + int(end.Month()-start.Month()) + 1
+	return subscriptions, nil
 }

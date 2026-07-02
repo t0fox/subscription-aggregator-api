@@ -1,5 +1,7 @@
 ﻿# Subscription Aggregator API
 
+[![CI](https://github.com/t0fox/subscription-aggregator-api/actions/workflows/ci.yml/badge.svg)](https://github.com/t0fox/subscription-aggregator-api/actions/workflows/ci.yml)
+
 REST API in Go for storing user online subscriptions and calculating their total cost for a selected period.
 
 ![Go](https://img.shields.io/badge/Go-1.22-00ADD8?style=flat-square&logo=go&logoColor=white)
@@ -44,6 +46,7 @@ Each subscription contains:
 
 ```text
 .
+|-- .github/workflows
 |-- cmd/server
 |-- docs
 |-- internal/config
@@ -141,3 +144,39 @@ Example response for a 400 rub/month subscription active from `07-2025` through 
   "total": 2400
 }
 ```
+
+## Testing
+
+Run the full test suite locally:
+
+```bash
+go test ./...
+```
+
+Run the same race and coverage check used by CI:
+
+```bash
+go test -race -cover ./...
+```
+
+Check formatting and vetting before review:
+
+```bash
+test -z "$(gofmt -l .)"
+go vet ./...
+```
+
+## CI/CD
+
+GitHub Actions runs on every push and pull request to `main`.
+
+The CI pipeline checks:
+
+- `gofmt`
+- `go vet ./...`
+- `go build ./...`
+- `go test -race -cover ./...`
+- `golangci-lint`
+- Docker image build
+
+PostgreSQL 15 is provided as a CI service with a healthcheck for jobs that need database configuration.
