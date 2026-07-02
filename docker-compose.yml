@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: subscription_user
+      POSTGRES_PASSWORD: subscription_password
+      POSTGRES_DB: subscription_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: subscription_user
+      DB_PASSWORD: subscription_password
+      DB_NAME: subscription_db
+    volumes:
+      - ./migrations:/migrations
+
+volumes:
+  postgres_data:
