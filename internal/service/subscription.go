@@ -1,12 +1,13 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/subscription_service/internal/models"
-	"github.com/subscription_service/internal/repository"
+	"github.com/t0fox/subscription-aggregator-api/internal/models"
+	"github.com/t0fox/subscription-aggregator-api/internal/repository"
 )
 
 type SubscriptionService struct {
@@ -18,6 +19,10 @@ func NewSubscriptionService(repo *repository.SubscriptionRepository) *Subscripti
 }
 
 func (s *SubscriptionService) Create(subReq *models.SubscriptionCreateRequest) (*models.Subscription, error) {
+	if _, err := uuid.Parse(subReq.UserID); err != nil {
+		return nil, fmt.Errorf("invalid UUID format")
+	}
+
 	startDate, err := time.Parse("01-2006", subReq.StartDate)
 	if err != nil {
 		return nil, fmt.Errorf("invalid start date format, expected MM-YYYY")
@@ -40,7 +45,7 @@ func (s *SubscriptionService) Create(subReq *models.SubscriptionCreateRequest) (
 		EndDate:     endDate,
 	}
 
-	return sub, s.repo.Create(nil, sub)
+	return sub, s.repo.Create(context.Background(), sub)
 }
 
 func (s *SubscriptionService) GetByID(id string) (*models.Subscription, error) {
@@ -48,11 +53,11 @@ func (s *SubscriptionService) GetByID(id string) (*models.Subscription, error) {
 		return nil, fmt.Errorf("invalid UUID format")
 	}
 
-	return s.repo.GetByID(nil, id)
+	return s.repo.GetByID(context.Background(), id)
 }
 
 func (s *SubscriptionService) GetAll() ([]models.Subscription, error) {
-	return s.repo.GetAll(nil)
+	return s.repo.GetAll(context.Background())
 }
 
 func (s *SubscriptionService) Update(id string, updateReq *models.SubscriptionUpdateRequest) (*models.Subscription, error) {
@@ -60,25 +65,31 @@ func (s *SubscriptionService) Update(id string, updateReq *models.SubscriptionUp
 		return nil, fmt.Errorf("invalid UUID format")
 	}
 
-	return s.repo.Update(nil, id, updateReq)
+	return s.repo.Update(context.Background(), id, updateReq)
 }
 
 func (s *SubscriptionService) Delete(id string) error {
 	if _, err := uuid.Parse(id); err != nil {
-		return nil, fmt.Errorf("invalid UUID format")
+		return fmt.Errorf("invalid UUID format")
 	}
 
-	return s.repo.Delete(nil, id)
+	return s.repo.Delete(context.Background(), id)
 }
 
 func (s *SubscriptionService) GetSumByPeriod(filter *models.SubscriptionFilter) (int, error) {
+	if filter.UserID != nil {
+		if _, err := uuid.Parse(*filter.UserID); err != nil {
+			return 0, fmt.Errorf("invalid UUID format")
+		}
+	}
+
 	if filter.StartDate != nil {
 		_, err := time.Parse("01-2006", *filter.StartDate)
 		if err != nil {
 			return 0, fmt.Errorf("invalid start date format, expected MM-YYYY")
 		}
 	}
-	
+
 	if filter.EndDate != nil {
 		_, err := time.Parse("01-2006", *filter.EndDate)
 		if err != nil {
@@ -86,5 +97,5 @@ func (s *SubscriptionService) GetSumByPeriod(filter *models.SubscriptionFilter) 
 		}
 	}
 
-	return s.repo.GetSumByPeriod(nil, filter)
+	return s.repo.GetSumByPeriod(context.Background(), filter)
 }

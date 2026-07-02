@@ -25,7 +25,7 @@ func Logging() gin.HandlerFunc {
 			path = path + "?" + raw
 		}
 
-		log.Printf("[GIN] %s | %3d | %13v | %15s | %s | %s",
+		log.Printf("[GIN] %s | %3d | %13v | %15s | %d | %s",
 			method,
 			statusCode,
 			latency,

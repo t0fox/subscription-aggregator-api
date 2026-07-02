@@ -1,38 +1,27 @@
 package main
 
 import (
+	"context"
 	"log"
-	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"github.com/subscription_service/internal/config"
-	"github.com/subscription_service/internal/handlers"
-	"github.com/subscription_service/internal/middleware"
-	"github.com/subscription_service/internal/repository"
-	"github.com/subscription_service/internal/service"
-	"github.com/jackc/pgx/v5"
-	"github.com/google/uuid"
+	_ "github.com/t0fox/subscription-aggregator-api/docs"
+	"github.com/t0fox/subscription-aggregator-api/internal/config"
+	"github.com/t0fox/subscription-aggregator-api/internal/handlers"
+	"github.com/t0fox/subscription-aggregator-api/internal/middleware"
+	"github.com/t0fox/subscription-aggregator-api/internal/repository"
+	"github.com/t0fox/subscription-aggregator-api/internal/service"
 )
 
 // @title Subscription Service API
 // @version 1.0
-// @description API для управления подписками на онлайн-услуги
-// @termsOfService http://swagger.io/terms/
-
-// @contact.name API Support
-// @contact.url http://www.swagger.io/support
-// @contact.email support@swagger.io
-
-// @license.name Apache 2.0
-// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
-
+// @description API for managing online subscription records.
 // @host localhost:8080
 // @BasePath /api/v1
-// @securityDefinitions.apikey ApiKeyAuth
-// @in header
-// @name Authorization
 func main() {
 	cfg := config.Load()
 
@@ -46,11 +35,11 @@ func main() {
 	r.Use(middleware.Logging())
 
 	connStr := "postgres://" + cfg.DBUser + ":" + cfg.DBPassword + "@" + cfg.DBHost + ":" + cfg.DBPort + "/" + cfg.DBName + "?sslmode=prefer"
-	conn, err := pgx.Connect(nil, connStr)
+	conn, err := connectWithRetry(context.Background(), connStr, 30, time.Second)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
-	defer conn.Close()
+	defer conn.Close(context.Background())
 
 	subscriptionRepo := repository.NewSubscriptionRepository(conn)
 	subscriptionService := service.NewSubscriptionService(subscriptionRepo)
@@ -73,4 +62,21 @@ func main() {
 	if err := r.Run(":" + cfg.ServerPort); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
+}
+
+func connectWithRetry(ctx context.Context, connStr string, attempts int, delay time.Duration) (*pgx.Conn, error) {
+	var lastErr error
+
+	for attempt := 1; attempt <= attempts; attempt++ {
+		conn, err := pgx.Connect(ctx, connStr)
+		if err == nil {
+			return conn, nil
+		}
+
+		lastErr = err
+		log.Printf("Database is not ready yet, retrying (%d/%d): %v", attempt, attempts, err)
+		time.Sleep(delay)
+	}
+
+	return nil, lastErr
 }

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/subscription_service/internal/config"
+	"github.com/t0fox/subscription-aggregator-api/internal/config"
 )
 
 type Database struct {
