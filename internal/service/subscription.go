@@ -34,6 +34,9 @@ func (s *SubscriptionService) Create(subReq *models.SubscriptionCreateRequest) (
 		if err != nil {
 			return nil, fmt.Errorf("invalid end date format, expected MM-YYYY")
 		}
+		if parsedEnd.Before(startDate) {
+			return nil, fmt.Errorf("invalid end date: must be greater than or equal to start date")
+		}
 		endDate = &parsedEnd
 	}
 
@@ -64,6 +67,24 @@ func (s *SubscriptionService) Update(id string, updateReq *models.SubscriptionUp
 	if _, err := uuid.Parse(id); err != nil {
 		return nil, fmt.Errorf("invalid UUID format")
 	}
+	if updateReq.Price != nil && *updateReq.Price < 1 {
+		return nil, fmt.Errorf("invalid price: must be greater than zero")
+	}
+
+	if updateReq.EndDate != nil {
+		parsedEnd, err := time.Parse("01-2006", *updateReq.EndDate)
+		if err != nil {
+			return nil, fmt.Errorf("invalid end date format, expected MM-YYYY")
+		}
+
+		current, err := s.repo.GetByID(context.Background(), id)
+		if err != nil {
+			return nil, err
+		}
+		if parsedEnd.Before(current.StartDate) {
+			return nil, fmt.Errorf("invalid end date: must be greater than or equal to start date")
+		}
+	}
 
 	return s.repo.Update(context.Background(), id, updateReq)
 }
@@ -83,18 +104,22 @@ func (s *SubscriptionService) GetSumByPeriod(filter *models.SubscriptionFilter) 
 		}
 	}
 
-	if filter.StartDate != nil {
-		_, err := time.Parse("01-2006", *filter.StartDate)
-		if err != nil {
-			return 0, fmt.Errorf("invalid start date format, expected MM-YYYY")
-		}
+	if filter.StartDate == nil || filter.EndDate == nil {
+		return 0, fmt.Errorf("invalid period: start_date and end_date are required")
 	}
 
-	if filter.EndDate != nil {
-		_, err := time.Parse("01-2006", *filter.EndDate)
-		if err != nil {
-			return 0, fmt.Errorf("invalid end date format, expected MM-YYYY")
-		}
+	startDate, err := time.Parse("01-2006", *filter.StartDate)
+	if err != nil {
+		return 0, fmt.Errorf("invalid start date format, expected MM-YYYY")
+	}
+
+	endDate, err := time.Parse("01-2006", *filter.EndDate)
+	if err != nil {
+		return 0, fmt.Errorf("invalid end date format, expected MM-YYYY")
+	}
+
+	if endDate.Before(startDate) {
+		return 0, fmt.Errorf("invalid period: end date must be greater than or equal to start date")
 	}
 
 	return s.repo.GetSumByPeriod(context.Background(), filter)

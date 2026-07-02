@@ -1,86 +1,73 @@
-# Subscription Aggregator API
+﻿# Subscription Aggregator API
 
-REST API на Go для учета пользовательских онлайн-подписок и подсчета их суммарной стоимости за выбранный период.
+REST API in Go for storing user online subscriptions and calculating their total cost for a selected period.
 
 ![Go](https://img.shields.io/badge/Go-1.22-00ADD8?style=flat-square&logo=go&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?style=flat-square&logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![Swagger](https://img.shields.io/badge/API-Swagger-85EA2D?style=flat-square&logo=swagger&logoColor=black)
 
-## О проекте
+## Overview
 
-Сервис реализует CRUDL-операции для записей о подписках пользователей и предоставляет ручку для агрегации расходов. Проект сделан в рамках тестового задания Junior Golang Developer.
+The service implements CRUDL operations for subscription records and provides an endpoint for calculating the total subscription cost for a selected period.
 
-Каждая подписка содержит:
+Each subscription contains:
 
-- название сервиса;
-- стоимость месячной подписки в рублях;
-- ID пользователя в формате UUID;
-- дату начала подписки в формате `MM-YYYY`;
-- опциональную дату окончания подписки.
+- service name
+- monthly price in rubles
+- user ID in UUID format
+- subscription start date in `MM-YYYY`
+- optional subscription end date in `MM-YYYY`
 
-## Возможности
+## Features
 
-- Создание, получение, обновление и удаление подписок.
-- Получение списка всех подписок.
-- Подсчет суммарной стоимости подписок с фильтрацией по пользователю и названию сервиса.
-- PostgreSQL как основное хранилище данных.
-- SQL-миграции для инициализации схемы.
-- Конфигурация через `.env`.
-- HTTP-логирование запросов.
-- Swagger UI для документации API.
-- Запуск окружения через Docker Compose.
+- Create, list, get, update, and delete subscriptions
+- Calculate total subscription cost for a selected period
+- Filter total cost by `user_id` and `service_name`
+- PostgreSQL storage
+- SQL migrations for database initialization
+- Environment-based configuration via `.env`
+- HTTP request logging
+- Swagger documentation
+- Docker Compose startup
 
-## Стек
+## Stack
 
 - Go 1.22
 - Gin
 - pgx
 - PostgreSQL 15
-- golang-migrate
 - Docker / Docker Compose
 - Swagger
 
-## Структура проекта
+## Project Structure
 
 ```text
 .
-|-- cmd/server              # Точка входа приложения
-|-- internal/config         # Загрузка конфигурации
-|-- internal/handlers       # HTTP-обработчики
-|-- internal/middleware     # Middleware
-|-- internal/models         # DTO и доменные модели
-|-- internal/repository     # Работа с PostgreSQL
-|-- internal/service        # Бизнес-логика
-|-- migrations              # SQL-миграции
-|-- pkg/database            # Подключение к БД
+|-- cmd/server
+|-- docs
+|-- internal/config
+|-- internal/handlers
+|-- internal/middleware
+|-- internal/models
+|-- internal/repository
+|-- internal/service
+|-- migrations
+|-- pkg/database
 |-- docker-compose.yml
 |-- Dockerfile
 `-- README.md
 ```
 
-## Быстрый старт
-
-Склонируйте репозиторий:
+## Quick Start
 
 ```bash
 git clone https://github.com/t0fox/subscription-aggregator-api.git
 cd subscription-aggregator-api
-```
-
-Создайте `.env` на основе примера:
-
-```bash
-cp .env.example .env
-```
-
-Запустите сервис и PostgreSQL:
-
-```bash
 docker compose up --build
 ```
 
-API будет доступно по адресу:
+API base URL:
 
 ```text
 http://localhost:8080/api/v1
@@ -92,9 +79,13 @@ Swagger UI:
 http://localhost:8080/swagger/index.html
 ```
 
-## Конфигурация
+Swagger JSON:
 
-Переменные окружения:
+```text
+http://localhost:8080/swagger/doc.json
+```
+
+## Environment Variables
 
 ```env
 DB_HOST=localhost
@@ -106,20 +97,18 @@ SERVER_PORT=8080
 LOG_LEVEL=info
 ```
 
-## API
+## API Endpoints
 
-| Метод | Путь | Описание |
+| Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/api/v1/subscriptions` | Создать подписку |
-| `GET` | `/api/v1/subscriptions` | Получить список подписок |
-| `GET` | `/api/v1/subscriptions/{id}` | Получить подписку по ID |
-| `PUT` | `/api/v1/subscriptions/{id}` | Обновить подписку |
-| `DELETE` | `/api/v1/subscriptions/{id}` | Удалить подписку |
-| `POST` | `/api/v1/subscriptions/sum` | Посчитать сумму подписок |
+| `POST` | `/api/v1/subscriptions` | Create subscription |
+| `GET` | `/api/v1/subscriptions` | List subscriptions |
+| `GET` | `/api/v1/subscriptions/{id}` | Get subscription by ID |
+| `PUT` | `/api/v1/subscriptions/{id}` | Update subscription |
+| `DELETE` | `/api/v1/subscriptions/{id}` | Delete subscription |
+| `POST` | `/api/v1/subscriptions/sum` | Calculate total subscription cost |
 
-## Примеры запросов
-
-Создание подписки:
+## Example Create Request
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/subscriptions \
@@ -132,13 +121,7 @@ curl -X POST http://localhost:8080/api/v1/subscriptions \
   }'
 ```
 
-Получение списка:
-
-```bash
-curl http://localhost:8080/api/v1/subscriptions
-```
-
-Подсчет суммы:
+## Example Sum Request
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/subscriptions/sum \
@@ -151,39 +134,10 @@ curl -X POST http://localhost:8080/api/v1/subscriptions/sum \
   }'
 ```
 
-Ответ:
+Example response for a 400 rub/month subscription active from `07-2025` through `12-2025`:
 
 ```json
 {
-  "total": 400
+  "total": 2400
 }
 ```
-
-## Миграции
-
-SQL-миграции лежат в директории `migrations`.
-
-```text
-migrations/
-|-- 000001_init_schema.up.sql
-`-- 000001_init_schema.down.sql
-```
-
-## Модель данных
-
-```sql
-CREATE TABLE subscriptions (
-    id UUID PRIMARY KEY,
-    service_name VARCHAR(255) NOT NULL,
-    price INTEGER NOT NULL,
-    user_id UUID NOT NULL,
-    start_date DATE NOT NULL,
-    end_date DATE,
-    created_at TIMESTAMP,
-    updated_at TIMESTAMP
-);
-```
-
-## Автор
-
-Kirill - [t0fox](https://github.com/t0fox)
