@@ -41,7 +41,7 @@ Interactive Swagger UI is available at `/swagger/index.html` when the service is
 
 ## Stack
 
-- Go 1.24
+- Go 1.25
 - Gin
 - pgx
 - PostgreSQL 15
