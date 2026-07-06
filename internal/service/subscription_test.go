@@ -10,8 +10,8 @@ import (
 )
 
 type fakeSubscriptionRepository struct {
-	subscriptions   []models.Subscription
-	getByIDResult   *models.Subscription
+	subscriptions []models.Subscription
+	getByIDResult *models.Subscription
 }
 
 func (f *fakeSubscriptionRepository) Create(context.Context, *models.Subscription) error {
