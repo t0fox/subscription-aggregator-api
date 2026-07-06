@@ -7,14 +7,15 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/t0fox/subscription-aggregator-api/internal/models"
 )
 
 type SubscriptionRepository struct {
-	db *pgx.Conn
+	db *pgxpool.Pool
 }
 
-func NewSubscriptionRepository(db *pgx.Conn) *SubscriptionRepository {
+func NewSubscriptionRepository(db *pgxpool.Pool) *SubscriptionRepository {
 	return &SubscriptionRepository{db: db}
 }
 

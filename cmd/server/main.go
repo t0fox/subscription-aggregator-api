@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/t0fox/subscription-aggregator-api/internal/middleware"
 	"github.com/t0fox/subscription-aggregator-api/internal/repository"
 	"github.com/t0fox/subscription-aggregator-api/internal/service"
+	"github.com/t0fox/subscription-aggregator-api/pkg/database"
 )
 
 // @title Subscription Service API
@@ -27,7 +27,6 @@ import (
 // @description API for managing online subscription records.
 // @host localhost:8080
 // @BasePath /api/v1
-
 func main() {
 	cfg := config.Load()
 
@@ -44,15 +43,13 @@ func main() {
 	r := gin.Default()
 	r.Use(middleware.Logging())
 
-	connStr := "postgres://" + cfg.DBUser + ":" + cfg.DBPassword + "@" + cfg.DBHost + ":" + cfg.DBPort + "/" + cfg.DBName + "?sslmode=prefer"
-
-	conn, err := connectWithRetry(ctx, connStr, 30, time.Second)
+	db, err := database.NewDatabase(ctx, cfg)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
-	defer conn.Close(context.Background())
+	defer db.Close()
 
-	subscriptionRepo := repository.NewSubscriptionRepository(conn)
+	subscriptionRepo := repository.NewSubscriptionRepository(db.Pool)
 	subscriptionService := service.NewSubscriptionService(subscriptionRepo)
 	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionService)
 
@@ -95,18 +92,4 @@ func main() {
 	} else {
 		log.Println("Server stopped cleanly")
 	}
-}
-
-func connectWithRetry(ctx context.Context, connStr string, attempts int, delay time.Duration) (*pgx.Conn, error) {
-	var lastErr error
-	for attempt := 1; attempt <= attempts; attempt++ {
-		conn, err := pgx.Connect(ctx, connStr)
-		if err == nil {
-			return conn, nil
-		}
-		lastErr = err
-		log.Printf("Database is not ready yet, retrying (%d/%d): %v", attempt, attempts, err)
-		time.Sleep(delay)
-	}
-	return nil, lastErr
 }

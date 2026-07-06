@@ -14,35 +14,40 @@ type Database struct {
 	Pool *pgxpool.Pool
 }
 
-func NewDatabase(cfg *config.Config) *Database {
+// NewDatabase создаёт пул и ждёт готовности БД. Возвращает error, а не роняет процесс.
+func NewDatabase(ctx context.Context, cfg *config.Config) (*Database, error) {
 	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=prefer",
 		cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBPort, cfg.DBName)
 
 	poolConfig, err := pgxpool.ParseConfig(connStr)
 	if err != nil {
-		log.Fatalf("Unable to parse database config: %v", err)
+		return nil, fmt.Errorf("parse database config: %w", err)
 	}
-
 	poolConfig.MaxConns = 10
 	poolConfig.MinConns = 2
-	poolConfig.HealthCheckPeriod = 1 * time.Minute
+	poolConfig.HealthCheckPeriod = time.Minute
 	poolConfig.MaxConnLifetime = 2 * time.Hour
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
-		log.Fatalf("Unable to create connection pool: %v", err)
+		return nil, fmt.Errorf("create connection pool: %w", err)
 	}
 
-	if err = pool.Ping(ctx); err != nil {
-		log.Fatalf("Unable to ping database: %v", err)
+	// Ждём, пока Postgres поднимется.
+	var lastErr error
+	for attempt := 1; attempt <= 30; attempt++ {
+		if err := pool.Ping(ctx); err == nil {
+			log.Println("Database connection established successfully")
+			return &Database{Pool: pool}, nil
+		} else {
+			lastErr = err
+			log.Printf("Database not ready, retry (%d/30): %v", attempt, err)
+			time.Sleep(time.Second)
+		}
 	}
 
-	log.Println("Database connection established successfully")
-
-	return &Database{Pool: pool}
+	pool.Close()
+	return nil, fmt.Errorf("database not reachable after retries: %w", lastErr)
 }
 
 func (db *Database) Close() {
