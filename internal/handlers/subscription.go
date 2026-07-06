@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -67,14 +68,19 @@ func (h *SubscriptionHandler) GetByID(c *gin.Context) {
 
 // GetAll godoc
 // @Summary List subscriptions
-// @Description Returns all subscription records.
+// @Description Returns subscription records with pagination.
 // @Tags subscriptions
 // @Produce json
+// @Param limit query int false "Page size (default 20, max 100)"
+// @Param offset query int false "Rows to skip (default 0)"
 // @Success 200 {array} models.Subscription
 // @Failure 500 {object} models.ErrorResponse
 // @Router /subscriptions [get]
 func (h *SubscriptionHandler) GetAll(c *gin.Context) {
-	subs, err := h.service.GetAll()
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	subs, err := h.service.GetAll(limit, offset)
 	if err != nil {
 		writeError(c, err)
 		return

@@ -53,10 +53,13 @@ func (r *SubscriptionRepository) GetByID(ctx context.Context, id string) (*model
 	return sub, nil
 }
 
-func (r *SubscriptionRepository) GetAll(ctx context.Context) ([]models.Subscription, error) {
-	query := `SELECT id, service_name, price, user_id, start_date, end_date, created_at, updated_at FROM subscriptions ORDER BY created_at DESC`
+func (r *SubscriptionRepository) GetAll(ctx context.Context, limit, offset int) ([]models.Subscription, error) {
+	query := `SELECT id, service_name, price, user_id, start_date, end_date, created_at, updated_at
+		FROM subscriptions
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2`
 
-	rows, err := r.db.Query(ctx, query)
+	rows, err := r.db.Query(ctx, query, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get subscriptions: %w", err)
 	}

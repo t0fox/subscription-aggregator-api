@@ -25,7 +25,7 @@ func (f *fakeSubscriptionRepository) GetByID(context.Context, string) (*models.S
 	return &models.Subscription{}, nil
 }
 
-func (f *fakeSubscriptionRepository) GetAll(context.Context) ([]models.Subscription, error) {
+func (f *fakeSubscriptionRepository) GetAll(context.Context, int, int) ([]models.Subscription, error) {
 	return nil, nil
 }
 

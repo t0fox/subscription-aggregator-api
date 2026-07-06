@@ -12,7 +12,7 @@ import (
 type SubscriptionRepository interface {
 	Create(ctx context.Context, sub *models.Subscription) error
 	GetByID(ctx context.Context, id string) (*models.Subscription, error)
-	GetAll(ctx context.Context) ([]models.Subscription, error)
+	GetAll(ctx context.Context, limit, offset int) ([]models.Subscription, error)
 	Update(ctx context.Context, id string, update *models.SubscriptionUpdateRequest) (*models.Subscription, error)
 	Delete(ctx context.Context, id string) error
 	GetByPeriod(ctx context.Context, filter *models.SubscriptionFilter) ([]models.Subscription, error)
@@ -67,8 +67,15 @@ func (s *SubscriptionService) GetByID(id string) (*models.Subscription, error) {
 	return s.repo.GetByID(context.Background(), id)
 }
 
-func (s *SubscriptionService) GetAll() ([]models.Subscription, error) {
-	return s.repo.GetAll(context.Background())
+func (s *SubscriptionService) GetAll(limit, offset int) ([]models.Subscription, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	return s.repo.GetAll(context.Background(), limit, offset)
 }
 
 func (s *SubscriptionService) Update(id string, updateReq *models.SubscriptionUpdateRequest) (*models.Subscription, error) {
