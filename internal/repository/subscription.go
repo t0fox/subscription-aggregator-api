@@ -2,12 +2,14 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/t0fox/subscription-aggregator-api/internal/models"
 )
 
@@ -44,8 +46,8 @@ func (r *SubscriptionRepository) GetByID(ctx context.Context, id string) (*model
 
 	err := row.Scan(&sub.ID, &sub.ServiceName, &sub.Price, &sub.UserID, &sub.StartDate, &sub.EndDate, &sub.CreatedAt, &sub.UpdatedAt)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("subscription not found")
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, models.ErrNotFound
 		}
 		return nil, fmt.Errorf("failed to get subscription: %w", err)
 	}
@@ -53,11 +55,9 @@ func (r *SubscriptionRepository) GetByID(ctx context.Context, id string) (*model
 	return sub, nil
 }
 
+// GetAll returns a page of subscriptions using LIMIT/OFFSET pagination.
 func (r *SubscriptionRepository) GetAll(ctx context.Context, limit, offset int) ([]models.Subscription, error) {
-	query := `SELECT id, service_name, price, user_id, start_date, end_date, created_at, updated_at
-		FROM subscriptions
-		ORDER BY created_at DESC
-		LIMIT $1 OFFSET $2`
+	query := `SELECT id, service_name, price, user_id, start_date, end_date, created_at, updated_at FROM subscriptions ORDER BY created_at DESC LIMIT $1 OFFSET $2`
 
 	rows, err := r.db.Query(ctx, query, limit, offset)
 	if err != nil {
@@ -102,7 +102,7 @@ func (r *SubscriptionRepository) Update(ctx context.Context, id string, update *
 	if update.EndDate != nil {
 		parsedEnd, err := time.Parse("01-2006", *update.EndDate)
 		if err != nil {
-			return nil, fmt.Errorf("invalid end date format")
+			return nil, fmt.Errorf("%w: invalid end date format", models.ErrValidation)
 		}
 		setFields = append(setFields, fmt.Sprintf("end_date = $%d", argPos))
 		args = append(args, parsedEnd)
@@ -125,6 +125,9 @@ func (r *SubscriptionRepository) Update(ctx context.Context, id string, update *
 	sub := &models.Subscription{}
 	err := row.Scan(&sub.ID, &sub.ServiceName, &sub.Price, &sub.UserID, &sub.StartDate, &sub.EndDate, &sub.CreatedAt, &sub.UpdatedAt)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, models.ErrNotFound
+		}
 		return nil, fmt.Errorf("failed to update subscription: %w", err)
 	}
 
@@ -140,7 +143,7 @@ func (r *SubscriptionRepository) Delete(ctx context.Context, id string) error {
 	}
 
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("subscription not found")
+		return models.ErrNotFound
 	}
 
 	return nil

@@ -1,11 +1,12 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/t0fox/subscription-aggregator-api/internal/models"
 	"github.com/t0fox/subscription-aggregator-api/internal/service"
 )
@@ -36,7 +37,7 @@ func (h *SubscriptionHandler) Create(c *gin.Context) {
 		return
 	}
 
-	sub, err := h.service.Create(&req)
+	sub, err := h.service.Create(c.Request.Context(), &req)
 	if err != nil {
 		writeError(c, err)
 		return
@@ -57,7 +58,7 @@ func (h *SubscriptionHandler) Create(c *gin.Context) {
 // @Router /subscriptions/{id} [get]
 func (h *SubscriptionHandler) GetByID(c *gin.Context) {
 	id := c.Param("id")
-	sub, err := h.service.GetByID(id)
+	sub, err := h.service.GetByID(c.Request.Context(), id)
 	if err != nil {
 		writeError(c, err)
 		return
@@ -68,19 +69,19 @@ func (h *SubscriptionHandler) GetByID(c *gin.Context) {
 
 // GetAll godoc
 // @Summary List subscriptions
-// @Description Returns subscription records with pagination.
+// @Description Returns a paginated list of subscription records.
 // @Tags subscriptions
 // @Produce json
-// @Param limit query int false "Page size (default 20, max 100)"
+// @Param limit query int false "Page size (default 50)"
 // @Param offset query int false "Rows to skip (default 0)"
 // @Success 200 {array} models.Subscription
 // @Failure 500 {object} models.ErrorResponse
 // @Router /subscriptions [get]
 func (h *SubscriptionHandler) GetAll(c *gin.Context) {
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	limit := parseIntQuery(c, "limit", 50)
+	offset := parseIntQuery(c, "offset", 0)
 
-	subs, err := h.service.GetAll(limit, offset)
+	subs, err := h.service.GetAll(c.Request.Context(), limit, offset)
 	if err != nil {
 		writeError(c, err)
 		return
@@ -110,7 +111,7 @@ func (h *SubscriptionHandler) Update(c *gin.Context) {
 		return
 	}
 
-	sub, err := h.service.Update(id, &req)
+	sub, err := h.service.Update(c.Request.Context(), id, &req)
 	if err != nil {
 		writeError(c, err)
 		return
@@ -131,7 +132,7 @@ func (h *SubscriptionHandler) Update(c *gin.Context) {
 // @Router /subscriptions/{id} [delete]
 func (h *SubscriptionHandler) Delete(c *gin.Context) {
 	id := c.Param("id")
-	if err := h.service.Delete(id); err != nil {
+	if err := h.service.Delete(c.Request.Context(), id); err != nil {
 		writeError(c, err)
 		return
 	}
@@ -166,7 +167,7 @@ func (h *SubscriptionHandler) GetSum(c *gin.Context) {
 		EndDate:     &endDate,
 	}
 
-	total, err := h.service.GetSumByPeriod(filter)
+	total, err := h.service.GetSumByPeriod(c.Request.Context(), filter)
 	if err != nil {
 		writeError(c, err)
 		return
@@ -175,15 +176,27 @@ func (h *SubscriptionHandler) GetSum(c *gin.Context) {
 	c.JSON(http.StatusOK, models.SumResponse{Total: total})
 }
 
-func writeError(c *gin.Context, err error) {
-	status := http.StatusInternalServerError
-	message := err.Error()
-
-	if strings.Contains(message, "invalid") {
-		status = http.StatusBadRequest
-	} else if strings.Contains(message, "not found") {
-		status = http.StatusNotFound
+// parseIntQuery reads a non-negative int query param, falling back to def.
+func parseIntQuery(c *gin.Context, key string, def int) int {
+	raw := c.Query(key)
+	if raw == "" {
+		return def
 	}
+	v, err := strconv.Atoi(raw)
+	if err != nil || v < 0 {
+		return def
+	}
+	return v
+}
 
-	c.JSON(status, models.ErrorResponse{Error: message})
+// writeError maps domain errors to HTTP status codes via errors.Is.
+func writeError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, models.ErrValidation):
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
+	case errors.Is(err, models.ErrNotFound):
+		c.JSON(http.StatusNotFound, models.ErrorResponse{Error: err.Error()})
+	default:
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: err.Error()})
+	}
 }

@@ -10,8 +10,8 @@ import (
 )
 
 type fakeSubscriptionRepository struct {
-	subscriptions []models.Subscription
-	getByIDResult *models.Subscription
+	subscriptions   []models.Subscription
+	getByIDResult   *models.Subscription
 }
 
 func (f *fakeSubscriptionRepository) Create(context.Context, *models.Subscription) error {
@@ -113,7 +113,7 @@ func TestSubscriptionServiceGetSumByPeriod(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := NewSubscriptionService(&fakeSubscriptionRepository{subscriptions: tt.subscriptions})
-			got, err := svc.GetSumByPeriod(&tt.filter)
+			got, err := svc.GetSumByPeriod(context.Background(), &tt.filter)
 			if tt.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
@@ -196,7 +196,7 @@ func TestSubscriptionServiceCreate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := NewSubscriptionService(&fakeSubscriptionRepository{})
-			got, err := svc.Create(&tt.req)
+			got, err := svc.Create(context.Background(), &tt.req)
 			if tt.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
@@ -264,7 +264,7 @@ func TestSubscriptionServiceUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := NewSubscriptionService(tt.repo)
-			_, err := svc.Update(tt.id, &tt.req)
+			_, err := svc.Update(context.Background(), tt.id, &tt.req)
 			if tt.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
@@ -281,10 +281,10 @@ func TestSubscriptionServiceUpdate(t *testing.T) {
 func TestSubscriptionServiceGetByIDValidation(t *testing.T) {
 	svc := NewSubscriptionService(&fakeSubscriptionRepository{})
 
-	if _, err := svc.GetByID("not-a-uuid"); err == nil {
+	if _, err := svc.GetByID(context.Background(), "not-a-uuid"); err == nil {
 		t.Fatal("expected error for invalid uuid")
 	}
-	if _, err := svc.GetByID("60601fee-2bf1-4721-ae6f-7636e79a0cba"); err != nil {
+	if _, err := svc.GetByID(context.Background(), "60601fee-2bf1-4721-ae6f-7636e79a0cba"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -292,10 +292,10 @@ func TestSubscriptionServiceGetByIDValidation(t *testing.T) {
 func TestSubscriptionServiceDeleteValidation(t *testing.T) {
 	svc := NewSubscriptionService(&fakeSubscriptionRepository{})
 
-	if err := svc.Delete("not-a-uuid"); err == nil {
+	if err := svc.Delete(context.Background(), "not-a-uuid"); err == nil {
 		t.Fatal("expected error for invalid uuid")
 	}
-	if err := svc.Delete("60601fee-2bf1-4721-ae6f-7636e79a0cba"); err != nil {
+	if err := svc.Delete(context.Background(), "60601fee-2bf1-4721-ae6f-7636e79a0cba"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

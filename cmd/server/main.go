@@ -27,6 +27,7 @@ import (
 // @description API for managing online subscription records.
 // @host localhost:8080
 // @BasePath /api/v1
+
 func main() {
 	cfg := config.Load()
 
@@ -40,18 +41,37 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	r := gin.Default()
-	r.Use(middleware.Logging())
-
-	db, err := database.NewDatabase(ctx, cfg)
+	// Connect using a pgx connection pool, retrying because Postgres may not be
+	// ready yet when the app starts under docker compose.
+	db, err := connectWithRetry(cfg, 30, time.Second)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
+	// Pool is closed on exit, after the HTTP server has already been stopped below.
 	defer db.Close()
+
+	r := gin.Default()
+	r.Use(middleware.Logging())
 
 	subscriptionRepo := repository.NewSubscriptionRepository(db.Pool)
 	subscriptionService := service.NewSubscriptionService(subscriptionRepo)
 	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionService)
+
+	// Liveness probe: the process is up.
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	// Readiness probe: dependencies (DB) are reachable.
+	r.GET("/ready", func(c *gin.Context) {
+		pingCtx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+		defer cancel()
+		if err := db.Pool.Ping(pingCtx); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not ready"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ready"})
+	})
 
 	api := r.Group("/api/v1")
 	{
@@ -92,4 +112,19 @@ func main() {
 	} else {
 		log.Println("Server stopped cleanly")
 	}
+}
+
+// connectWithRetry tries to build the DB pool several times before giving up.
+func connectWithRetry(cfg *config.Config, attempts int, delay time.Duration) (*database.Database, error) {
+	var lastErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		db, err := database.NewDatabase(cfg)
+		if err == nil {
+			return db, nil
+		}
+		lastErr = err
+		log.Printf("Database is not ready yet, retrying (%d/%d): %v", attempt, attempts, err)
+		time.Sleep(delay)
+	}
+	return nil, lastErr
 }
