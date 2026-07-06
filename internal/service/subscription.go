@@ -69,6 +69,14 @@ func (s *SubscriptionService) GetByID(ctx context.Context, id string) (*models.S
 }
 
 func (s *SubscriptionService) GetAll(ctx context.Context, limit, offset int) ([]models.Subscription, error) {
+	// Clamp pagination to safe bounds so a caller cannot request the whole table.
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
 	return s.repo.GetAll(ctx, limit, offset)
 }
 
