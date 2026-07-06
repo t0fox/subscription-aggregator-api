@@ -1,4 +1,4 @@
-﻿# Subscription Aggregator API
+# Subscription Aggregator API
 
 [![CI](https://github.com/t0fox/subscription-aggregator-api/actions/workflows/ci.yml/badge.svg)](https://github.com/t0fox/subscription-aggregator-api/actions/workflows/ci.yml)
 
@@ -27,23 +27,34 @@ Interactive Swagger UI is available at `/swagger/index.html` when the service is
 
 ![Swagger UI](docs/swagger.png)
 
+Swagger JSON is available at `/swagger/doc.json`.
+
 ## Features
 
 - Create, list, get, update, and delete subscriptions
 - Calculate total subscription cost for a selected period
 - Filter total cost by `user_id` and `service_name`
-- PostgreSQL storage
-- SQL migrations for database initialization
+- PostgreSQL storage with SQL migrations
 - Environment-based configuration via `.env`
 - HTTP request logging
 - Swagger documentation
 - Docker Compose startup
 
+## Production-oriented features
+
+- Request context propagation from handlers down to database queries
+- Typed (sentinel) errors mapped to HTTP status codes via `errors.Is`
+- PostgreSQL connection pool via `pgxpool`
+- Health (`/health`) and readiness (`/ready`) endpoints
+- Database connection retry on startup
+- `LIMIT`/`OFFSET` pagination on the list endpoint (limit capped at 100, default 50)
+- Makefile for common local commands
+
 ## Stack
 
 - Go 1.25
 - Gin
-- pgx
+- pgx / pgxpool
 - PostgreSQL 15
 - Docker / Docker Compose
 - Swagger
@@ -65,6 +76,7 @@ Interactive Swagger UI is available at `/swagger/index.html` when the service is
 |-- pkg/database
 |-- docker-compose.yml
 |-- Dockerfile
+|-- Makefile
 `-- README.md
 ```
 
@@ -111,11 +123,13 @@ LOG_LEVEL=info
 | Method | Path | Description |
 | --- | --- | --- |
 | `POST` | `/api/v1/subscriptions` | Create subscription |
-| `GET` | `/api/v1/subscriptions` | List subscriptions |
+| `GET` | `/api/v1/subscriptions` | List subscriptions (`?limit=&offset=`) |
 | `GET` | `/api/v1/subscriptions/{id}` | Get subscription by ID |
 | `PUT` | `/api/v1/subscriptions/{id}` | Update subscription |
 | `DELETE` | `/api/v1/subscriptions/{id}` | Delete subscription |
 | `POST` | `/api/v1/subscriptions/sum` | Calculate total subscription cost |
+| `GET` | `/health` | Liveness probe |
+| `GET` | `/ready` | Readiness probe (checks DB connection) |
 
 ## Example Create Request
 
@@ -151,24 +165,27 @@ Example response for a 400 rub/month subscription active from `07-2025` through 
 }
 ```
 
-## Testing
+## Local Development
 
-Run the full test suite locally:
+Common commands are available via the Makefile:
+
+```bash
+make run     # run the server locally
+make build   # build the binary
+make test    # go test -race -cover ./...
+make lint    # gofmt + go vet + golangci-lint
+make up      # docker compose up --build
+make down    # docker compose down
+```
+
+On Windows without `make`, run the underlying commands directly, e.g. `go test -race -cover ./...`.
+
+## Testing
 
 ```bash
 go test ./...
-```
-
-Run the same race and coverage check used by CI:
-
-```bash
-go test -race -cover ./...
-```
-
-Check formatting and vetting before review:
-
-```bash
-gofmt -l .
+go test -race -cover ./...   # same as CI
+gofmt -l .                   # should print nothing
 go vet ./...
 ```
 
