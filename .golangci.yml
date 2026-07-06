@@ -10,6 +10,14 @@ linters:
     - revive
     - staticcheck
     - unused
+  exclusions:
+    rules:
+      - linters:
+          - revive
+        text: "should have a package comment"
+      - linters:
+          - revive
+        text: "should have comment or be unexported"
 formatters:
   enable:
     - gofmt

@@ -36,14 +36,13 @@ func NewDatabase(ctx context.Context, cfg *config.Config) (*Database, error) {
 	// Ждём, пока Postgres поднимется.
 	var lastErr error
 	for attempt := 1; attempt <= 30; attempt++ {
-		if err := pool.Ping(ctx); err == nil {
+		lastErr = pool.Ping(ctx)
+		if lastErr == nil {
 			log.Println("Database connection established successfully")
 			return &Database{Pool: pool}, nil
-		} else {
-			lastErr = err
-			log.Printf("Database not ready, retry (%d/30): %v", attempt, err)
-			time.Sleep(time.Second)
 		}
+		log.Printf("Database not ready, retry (%d/30): %v", attempt, lastErr)
+		time.Sleep(time.Second)
 	}
 
 	pool.Close()
